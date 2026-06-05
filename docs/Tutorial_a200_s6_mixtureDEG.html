@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Jiazhen Rong, Sydney Bracht" />
+
+<meta name="date" content="2025-09-15" />
+
+<title>Tutorial of Mixture DEG Analysis (SpotGLM) on Barrett’s Esophagus example</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Tutorial of Mixture DEG Analysis (SpotGLM)
+on Barrett’s Esophagus example</h1>
+<h4 class="author">Jiazhen Rong, Sydney Bracht</h4>
+<h4 class="date">2025-09-15</h4>
+
+
+
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>In the <a href="Tutorial_a200_s6.html">main SUMMIT tutorial</a>, we
+tested <strong>which specific cell type carries a given mitochondrial
+variant</strong>. Once we know which spots are carriers of a clone, a
+natural follow-up question is:</p>
+<blockquote>
+<p><em>Which genes are differentially expressed between clones (or
+between a clone and the rest of the tissue)?</em></p>
+</blockquote>
+<p>However, compared to standard single-cell DEG analysis, each spatial
+spot of <em>SUMMIT</em> is a <strong>mixture</strong> of multiple cell
+types. To recover cell-type-specific differential expression from these
+mixed spots, we use a mixture Poisson GLM.</p>
+<p>This tutorial reuses the same Barrett’s Esophagus sample (A200_s6)
+from the main tutorial, takes the mitochondrial clones we identified
+there as the <strong>covariate of interest (niche)</strong>, and gives
+an examplf of the mixture-DEG workflow.</p>
+<p>The example data are available at the same <a href="https://www.dropbox.com/scl/fo/sx6tfijkkapsvo4036xhj/AB9NjFsN6yz5xYyz-CpAgKk?rlkey=kf6blkddohhd7gdr96q85kf21&amp;st=sybpv5mx&amp;dl=0">DropBox</a>
+folder; please move them to the
+<strong>SpatialMT/examples/example_data</strong> folder.</p>
+<p>To run this tutorial you additionally need the <a href="https://kaishumason.github.io/SpotGLM/">spotglm</a> package:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;devtools&quot;</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;kaishumason/SpotGLM&quot;</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;kaishumason/SPARROW&quot;</span>) </span></code></pre></div>
+<div id="step-1-load-example-data" class="section level3">
+<h3>Step 1: Load example data</h3>
+<p>We load the same three inputs as in the main tutorial:</p>
+<ul>
+<li>the Spatial Transcriptomics (Curio Seeker) <strong>Seurat
+object</strong>,</li>
+<li>the mtDNA <strong>variant allele frequency</strong> matrix from
+MAESTER, and</li>
+<li>the <strong>RCTD cell-type deconvolution</strong> matrix.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(SpatialMT)               <span class="co"># SUMMIT</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(spotglm)                 <span class="co"># mixture GLM</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(spacexr)                 <span class="co"># RCTD</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Seurat)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Matrix)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(purrr)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(grid)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">setwd</span>(<span class="st">&quot;~/Documents/GitHub/SpatialMT/examples/&quot;</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">&quot;utility_prev_literature/210215_FunctionsGeneral.R&quot;</span>) <span class="co"># from MAESTER paper</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>slide_name <span class="ot">=</span> <span class="st">&quot;A200_s6&quot;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># load Spatial Transcriptomics / Curio Seeker data</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>seu <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;example_data/a200_s6_final.rds&quot;</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># spatial coordinates</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>coords <span class="ot">=</span> seu<span class="sc">@</span>reductions<span class="sc">$</span>SPATIAL<span class="sc">@</span>cell.embeddings</span></code></pre></div>
+<p>Load the RCTD cell-type ratio and normalize the per-spot weights to
+sum to 1:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>rctd_ratio_major <span class="ot">=</span> <span class="fu">readRDS</span>(<span class="st">&quot;example_data/RCTD_res.rds&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>rctd_ratio_major <span class="ot">=</span> <span class="fu">as.data.frame</span>(<span class="fu">as.matrix</span>(<span class="fu">normalize_weights</span>(rctd_ratio_major<span class="sc">@</span>results<span class="sc">$</span>weights)))</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(rctd_ratio_major) <span class="ot">=</span> <span class="fu">paste0</span>(<span class="fu">rownames</span>(rctd_ratio_major), <span class="st">&quot;-1&quot;</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>deconv <span class="ot">=</span> rctd_ratio_major</span></code></pre></div>
+<p>Load the mtDNA data (variant allele frequency <code>af.dm</code> and
+coverage <code>N</code>):</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>maegatk.rse <span class="ot">=</span> <span class="fu">readRDS</span>(<span class="st">&quot;example_data/maegatk_mr1.rds&quot;</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># all possible mitochondrial mutations&#39; (4 * 16K) x spot VAF</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>af.dm <span class="ot">&lt;-</span> <span class="fu">data.matrix</span>(<span class="fu">computeAFMutMatrix</span>(maegatk.rse)) <span class="co"># 0-1 VAF scale</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># coverage N, spot x each chrM location&#39;s coverage</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>counts <span class="ot">=</span> <span class="fu">as.matrix</span>(maegatk.rse<span class="sc">@</span>assays<span class="sc">@</span>data<span class="sc">$</span>coverage)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(counts) <span class="ot">=</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(counts)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(counts) <span class="ot">=</span> maegatk.rse<span class="sc">@</span>colData<span class="sc">@</span>rownames</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>N <span class="ot">=</span> <span class="fu">as</span>(<span class="fu">as.matrix</span>(counts[<span class="fu">sapply</span>(<span class="fu">strsplit</span>(<span class="fu">rownames</span>(af.dm), <span class="st">&quot;_&quot;</span>), <span class="st">&quot;[[&quot;</span>, <span class="dv">1</span>), ]), <span class="st">&quot;sparseMatrix&quot;</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(N) <span class="ot">&lt;-</span> <span class="fu">rownames</span>(af.dm)</span></code></pre></div>
+</div>
+<div id="step-2-build-the-clone-covariate-niche-matrix" class="section level3">
+<h3>Step 2: Build the clone covariate (niche) matrix</h3>
+<p>The “niche” matrix is the design/covariate matrix <code>X</code> that
+represents different clone identity and their microenvironment. In this
+tutorial example, each column is a mitochondrial clone, and a spot is
+assigned to a clone if its VAF for that variant exceeds a heteroplasmy
+threshold (0.25). Spots not carrying any of the variants of interest are
+assigned to a shared <code>Rest</code> group, which serves as the
+reference background.</p>
+<p>The covariate/niche matrix could be further designed to incorporate
+considerations such as micro-environment cells, etc.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># variants of interest (the same clones from the main tutorial)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>voi <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;3054_G&gt;C&quot;</span>, <span class="st">&quot;15777_G&gt;C&quot;</span>, <span class="st">&quot;3071_T&gt;C&quot;</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>niche <span class="ot">=</span> <span class="fu">as.matrix</span>(<span class="fu">Matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="fu">dim</span>(seu)[<span class="dv">2</span>], <span class="at">ncol =</span> <span class="dv">4</span>)) <span class="co"># X covariate matrix</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(niche) <span class="ot">=</span> <span class="fu">colnames</span>(seu)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(niche) <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;3054_G&gt;C&quot;</span>, <span class="st">&quot;15777_G&gt;C&quot;</span>, <span class="st">&quot;3071_T&gt;C&quot;</span>, <span class="st">&quot;Rest&quot;</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co"># assign carrier spots (VAF &gt; 0.25) for each clone</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>niche[<span class="fu">colnames</span>(af.dm)[af.dm[<span class="st">&quot;3054_G&gt;C&quot;</span>, ] <span class="sc">&gt;</span> <span class="fl">0.25</span>], <span class="st">&quot;3054_G&gt;C&quot;</span>] <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>niche[<span class="fu">intersect</span>(<span class="fu">colnames</span>(af.dm)[af.dm[<span class="st">&quot;15777_G&gt;C&quot;</span>, ] <span class="sc">&gt;</span> <span class="fl">0.25</span>], <span class="fu">rownames</span>(niche)), <span class="st">&quot;15777_G&gt;C&quot;</span>] <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>niche[<span class="fu">intersect</span>(<span class="fu">colnames</span>(af.dm)[af.dm[<span class="st">&quot;3071_T&gt;C&quot;</span>, ] <span class="sc">&gt;</span> <span class="fl">0.25</span>], <span class="fu">rownames</span>(niche)), <span class="st">&quot;3071_T&gt;C&quot;</span>] <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co"># everything else is background (&quot;Rest&quot;)</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>niche[(niche[, <span class="st">&quot;3054_G&gt;C&quot;</span>] <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">&amp;</span> (niche[, <span class="st">&quot;15777_G&gt;C&quot;</span>] <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">&amp;</span> (niche[, <span class="st">&quot;3071_T&gt;C&quot;</span>] <span class="sc">==</span> <span class="dv">0</span>),</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;Rest&quot;</span>] <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(niche) <span class="co"># number of spots per clone</span></span></code></pre></div>
+<p>Prepare the input data as the following format:</p>
+<ul>
+<li><code>counts</code> : spot x gene raw UMI counts (such as the top
+2000 highly variable genes),</li>
+<li><code>deconv</code> : spot x cell-type proportion matrix <span class="math inline">\(W\)</span>,</li>
+<li><code>niche</code> : spot x clone covariate matrix <span class="math inline">\(X\)</span> (built as above),</li>
+<li><code>library_size</code>: per-spot total counts (used as the GLM
+offset),</li>
+<li><code>coords</code> : spatial coordinates of each spot.</li>
+</ul>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>inter_bc <span class="ot">=</span> <span class="fu">intersect</span>(<span class="fu">colnames</span>(seu), <span class="fu">rownames</span>(deconv))</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>data<span class="sc">$</span>coords <span class="ot">=</span> coords[inter_bc, ]</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>data<span class="sc">$</span>deconv <span class="ot">=</span> deconv[inter_bc, ]</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Subset to the 2000 most variable genes</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>seu <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(seu, <span class="at">selection.method =</span> <span class="st">&quot;vst&quot;</span>, <span class="at">nfeatures =</span> <span class="dv">2000</span>)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>data<span class="sc">$</span>counts <span class="ot">=</span> <span class="fu">t</span>(seu<span class="sc">@</span>assays<span class="sc">$</span>RNA<span class="sc">$</span>counts)[inter_bc, <span class="fu">VariableFeatures</span>(seu)]</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>data<span class="sc">$</span>library_size <span class="ot">=</span> <span class="fu">rowSums</span>(data<span class="sc">$</span>counts)[inter_bc]</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>data<span class="sc">$</span>niche <span class="ot">=</span> <span class="fu">as.matrix</span>(niche[inter_bc, ])</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(af.dm); <span class="fu">rm</span>(maegatk.rse); <span class="fu">gc</span>()</span></code></pre></div>
+</div>
+<div id="step-3-fit-the-mixture-glm" class="section level3">
+<h3>Step 3: Fit the mixture GLM</h3>
+<p>We fit a <strong>spot-level Poisson GLM</strong> for each gene. The
+model regresses the gene’s count in each spot on the clone covariate
+<code>X</code>, scaled by the cell-type proportions
+<code>lambda = W</code>, with the log library size as an offset. This
+deconvolves the mixed signal so that each clone’s effect is estimated in
+a <strong>cell-type-specific</strong> manner.</p>
+<blockquote>
+<p><em>Fitting 2000 genes takes a while (~ 1 hour on a standard laptop’s
+cpu). For this tutorial we will directly load the pre-computed result
+spotglm_res_a200_s6.rds.</em></p>
+</blockquote>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># modification of fitting package</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>g_new <span class="ot">&lt;-</span> <span class="cf">function</span>(X, y, beta, lambda, offset) {</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  means <span class="ot">&lt;-</span> spotglm<span class="sc">:::</span>spot_poisson[[<span class="st">&quot;predict&quot;</span>]](X, beta, lambda, offset)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  CT_means <span class="ot">&lt;-</span> means<span class="sc">$</span>individual</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  total_means <span class="ot">&lt;-</span> means<span class="sc">$</span>total</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  weights <span class="ot">&lt;-</span> <span class="sc">-</span>lambda <span class="sc">*</span> CT_means <span class="sc">+</span> y <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">/</span> total_means) <span class="sc">*</span> lambda <span class="sc">*</span> CT_means</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  grad_beta <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">as.matrix</span>(X)) <span class="sc">%*%</span> <span class="fu">as.matrix</span>(weights)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">grad =</span> grad_beta, <span class="at">weights =</span> weights)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="fu">assignInNamespace</span>(<span class="st">&quot;spot_poisson&quot;</span>,</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">within</span>(spotglm<span class="sc">:::</span>spot_poisson, { grad <span class="ot">&lt;-</span> g_new }),</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ns =</span> <span class="st">&quot;spotglm&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Full fitting loop (not evaluated in the tutorial) ----</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>num_genes <span class="ot">=</span> <span class="fu">ncol</span>(data<span class="sc">$</span>counts)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>res <span class="ot">=</span> <span class="fu">vector</span>(<span class="st">&quot;list&quot;</span>, num_genes)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>t1 <span class="ot">=</span> <span class="fu">Sys.time</span>()</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq_len</span>(num_genes)) {</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (j <span class="sc">%%</span> <span class="dv">100</span> <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="st">&quot;Fitting model for gene &quot;</span>, j, <span class="st">&quot; out of &quot;</span>, num_genes, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">print</span>(<span class="fu">Sys.time</span>() <span class="sc">-</span> t1)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  res[[j]] <span class="ot">=</span> spotglm<span class="sc">::</span><span class="fu">run_model</span>(<span class="at">y =</span> data<span class="sc">$</span>counts[, j],</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>                                <span class="at">X =</span> data<span class="sc">$</span>niche,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>                                <span class="at">lambda =</span> data<span class="sc">$</span>deconv,</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>                                <span class="at">family =</span> <span class="st">&quot;spot poisson&quot;</span>,</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>                                <span class="at">offset =</span> <span class="fu">log</span>(data<span class="sc">$</span>library_size),</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>                                <span class="at">initialization =</span> <span class="cn">TRUE</span>, <span class="at">batch_size =</span> <span class="dv">250</span>)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(res) <span class="ot">=</span> <span class="fu">colnames</span>(data<span class="sc">$</span>counts)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(res, <span class="st">&quot;example_data/spotglm_res_a200_s6.rds&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load the pre-computed spotGLM fit (list of length 2000, one element per gene)</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;example_data/spotglm_res_a200_s6.rds&quot;</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">length</span>(res)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(res[[<span class="dv">1</span>]]) <span class="co"># beta_estimate, vcov, likelihood, converged, ...</span></span></code></pre></div>
+</div>
+<div id="step-4-mixture-deg" class="section level3">
+<h3>Step 4: Mixture DEG</h3>
+<p>Each gene’s fit gives a clone-specific coefficient
+(<code>beta_estimate</code>) and its covariance (<code>vcov</code>) for
+every cell type. To perform mixture DEG analysis we test contrasts
+between clones, i.e. whether a gene’s expression differs between two
+clones <em>within a given cell type</em>. We use
+<code>compute_contrast_significance()</code> and loop over all cell
+types <span class="math inline">\(\times\)</span> all clone pairs.</p>
+<p>We run a <strong>two-sided</strong> test (<code>sided = 2</code>) so
+genes up- or down-regulated in either clone are detected.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>cell_types <span class="ot">&lt;-</span> <span class="fu">colnames</span>(deconv) <span class="co"># e.g. BE, SQ, IM, FB, VC, ...</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>niches <span class="ot">&lt;-</span> <span class="fu">colnames</span>(niche)      <span class="co"># the 3 clone + Rest covariates</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>pairs <span class="ot">&lt;-</span> <span class="fu">combn</span>(niches, <span class="dv">2</span>, <span class="at">simplify =</span> <span class="cn">FALSE</span>)  <span class="co"># all clone-vs-clone contrasts</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>all_contrasts <span class="ot">&lt;-</span> purrr<span class="sc">::</span><span class="fu">map_dfr</span>(cell_types, <span class="cf">function</span>(ct) {</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">map_dfr</span>(pairs, <span class="cf">function</span>(p) {</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    n1 <span class="ot">&lt;-</span> p[<span class="dv">1</span>]; n2 <span class="ot">&lt;-</span> p[<span class="dv">2</span>]</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    out <span class="ot">&lt;-</span> <span class="fu">compute_contrast_significance</span>(</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">input_list =</span> res,</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>      <span class="at">cell_type =</span> ct,</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>      <span class="at">effect_names =</span> <span class="fu">c</span>(n1, n2),</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">beta_name =</span> <span class="st">&quot;beta_estimate&quot;</span>,</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>      <span class="at">covariance_name =</span> <span class="st">&quot;vcov&quot;</span>,</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">sided =</span> <span class="dv">2</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="sc">!</span>(<span class="st">&quot;gene&quot;</span> <span class="sc">%in%</span> <span class="fu">names</span>(out))) out <span class="ot">&lt;-</span> out <span class="sc">%&gt;%</span> tibble<span class="sc">::</span><span class="fu">rownames_to_column</span>(<span class="st">&quot;gene&quot;</span>)</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    out <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">contrast =</span> <span class="fu">paste0</span>(n1, <span class="st">&quot; vs &quot;</span>, n2))</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="co"># You could also directly load the fitted result to save time:</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="co"># all_contrasts &lt;- readRDS(&quot;example_data/results/deg_2sided.rds&quot;)</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(all_contrasts, <span class="st">&quot;example_data/results/deg_2sided.rds&quot;</span>)</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(all_contrasts)</span></code></pre></div>
+<p>The resulting table has one row per <code>gene</code> x
+<code>cell_type</code> x <code>contrast</code>, with a
+<code>test_statistic</code>, raw <code>pval</code> and FDR-adjusted
+<code>qval</code>.</p>
+<p>We typically drop mitochondrial (<code>MT-</code>) genes from the DEG
+results, since they directly track the mtDNA clone definition and would
+otherwise dominate the list:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>all_contrasts <span class="ot">=</span> all_contrasts[<span class="sc">!</span><span class="fu">grepl</span>(<span class="st">&quot;MT-&quot;</span>, all_contrasts<span class="sc">$</span>name), ]</span></code></pre></div>
+<p>Quick summary of how many significant genes (q &lt; 0.05 / 0.10) each
+cell type x contrast has:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>summary_by_ct_contrast <span class="ot">&lt;-</span> all_contrasts <span class="sc">%&gt;%</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(cell_type, contrast) <span class="sc">%&gt;%</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_q05 =</span> <span class="fu">n_distinct</span>(gene[qval <span class="sc">&lt;</span> <span class="fl">0.05</span>]),</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_q10 =</span> <span class="fu">n_distinct</span>(gene[qval <span class="sc">&lt;</span> <span class="fl">0.10</span>]),</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(cell_type, contrast)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(summary_by_ct_contrast, <span class="dv">12</span>)</span></code></pre></div>
+</div>
+<div id="step-5-visualize-top-degs-per-cell-type" class="section level3">
+<h3>Step 5: Visualize top DEGs per cell type</h3>
+<p>The function <code>plot_DEG()</code> selects the top genes per cell
+type by best q-value, and draws two side-by-side heatmaps per cell
+type:</p>
+<ul>
+<li>the <strong>effect size</strong> (here the
+<code>test_statistic</code>) across all clone comparisons, and</li>
+<li>the matching <strong>-log10(p)</strong> heatmap (capped at
+<code>qcap_val</code>) using the same row/column ordering.</li>
+</ul>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">&quot;mixture_DEG_pathway_functions.R&quot;</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>pdf_path <span class="ot">=</span> <span class="st">&quot;example_data/results/celltype_deg_top20_2sided_MTremoved.pdf&quot;</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_DEG</span>(all_contrasts,</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">cell_types =</span> cell_types,</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">pdf_path =</span> pdf_path,</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>         <span class="at">effect_col =</span> <span class="st">&quot;test_statistic&quot;</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">top_k =</span> <span class="dv">20</span>,      <span class="co"># top genes per cell type</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>         <span class="at">q_thresh =</span> <span class="fl">0.1</span>,  <span class="co"># significance threshold</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">qcap_val =</span> <span class="dv">10</span>)   <span class="co"># cap -log10(p) for plotting</span></span></code></pre></div>
+<p>The full set of per-cell-type heatmaps is saved at
+<code>example_data/results/celltype_deg_top20_2sided_MTremoved.pdf</code>.</p>
+</div>
+<div id="references" class="section level3">
+<h3>References</h3>
+<p>[1] Miller, T.E., Lareau, C.A., Verga, J.A. et al. Mitochondrial
+variant enrichment from high-throughput single-cell RNA sequencing
+resolves clonal populations. <em>Nat Biotechnol</em> 40, 1030–1034
+(2022). <a href="https://doi.org/10.1038/s41587-022-01210-8" class="uri">https://doi.org/10.1038/s41587-022-01210-8</a></p>
+<p>[2] Cable, Dylan M., et al. “Robust decomposition of cell type
+mixtures in spatial transcriptomics.” <em>Nature Biotechnology</em> 40.4
+(2022): 517-526.</p>
+<p>[3] spotGLM. <a href="https://kaishumason.github.io/SpotGLM/" class="uri">https://kaishumason.github.io/SpotGLM/</a></p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
