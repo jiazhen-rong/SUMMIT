@@ -42,8 +42,8 @@ git clone https://github.com/jiazhen-rong/SpatialMT.git
 
 ## Tutorial
 
- - [SUMMIT on Barrett's Esophagus Sample with Localized Clones](https://jiazhen-rong.github.io/SpatialMT/Tutorial_a200_s6.html) (~10 minutes)
- - [Mixture Differentially Expressed Genes Analysis on Barrett's Esophagus Sample with Localized Clones](https://jiazhen-rong.github.io/SpatialMT/Tutorial_a200_s6_mixtureDEG.html) (~2 hours)
+ - [SUMMIT on Barrett's Esophagus Sample with Localized Clones](https://jiazhen-rong.github.io/SUMMIT/Tutorial_a200_s6.html) (~10 minutes)
+ - [Mixture Differentially Expressed Genes Analysis on Barrett's Esophagus Sample with Localized Clones](https://jiazhen-rong.github.io/SUMMIT/Tutorial_a200_s6_mixtureDEG.html) (~2 hours)
 
 ## Citations
 If you used the package in your research, please cite:
