@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Large example data files (too big to commit)
+examples/example_data/a200_s6_final.rds
+examples/example_data/maegatk_mr1.rds

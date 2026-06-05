@@ -1,0 +1,340 @@
+---
+title: "Tutorial of Mixture DEG Analysis (SpotGLM) on Barrett's Esophagus example"
+author: "Jiazhen Rong, Sydney Bracht"
+date: "2025-09-15"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{SUMMIT Mixture DEG Tutorial}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message = FALSE, warning = FALSE)
+knitr::opts_knit$set(root.dir = "~/Documents/GitHub/SpatialMT/examples/")
+
+library(SpatialMT)
+library(SummarizedExperiment)
+library(Matrix)
+library(dplyr)
+library(ggplot2)
+library(Seurat)
+library(spacexr)
+```
+
+## Overview
+
+In the [main SUMMIT tutorial](Tutorial_a200_s6.html), we tested **which
+specific cell type carries a given mitochondrial variant**. Once we know
+which spots are carriers of a clone, a natural follow-up question is:
+
+> *Which genes are differentially expressed between clones (or between a
+> clone and the rest of the tissue)?*
+
+However, compared to standard single-cell DEG analysis, each spatial
+spot of *SUMMIT* is a **mixture** of multiple cell types. To recover
+cell-type-specific differential expression from these mixed spots, we
+use a mixture Poisson GLM.
+
+This tutorial reuses the same Barrett's Esophagus sample (A200_s6) from
+the main tutorial, takes the mitochondrial clones we identified there as
+the **covariate of interest (niche)**, and gives an examplf of the
+mixture-DEG workflow.
+
+The example data are available at the same
+[DropBox](https://www.dropbox.com/scl/fo/sx6tfijkkapsvo4036xhj/AB9NjFsN6yz5xYyz-CpAgKk?rlkey=kf6blkddohhd7gdr96q85kf21&st=sybpv5mx&dl=0)
+folder; please move them to the **SpatialMT/examples/example_data**
+folder.
+
+To run this tutorial you additionally need the
+[spotglm](https://kaishumason.github.io/SpotGLM/) package:
+
+```{r install_spotglm, eval=FALSE}
+install.packages("devtools")
+devtools::install_github("kaishumason/SpotGLM")
+devtools::install_github("kaishumason/SPARROW") 
+```
+
+### Step 1: Load example data
+
+We load the same three inputs as in the main tutorial:
+
+-   the Spatial Transcriptomics (Curio Seeker) **Seurat object**,
+-   the mtDNA **variant allele frequency** matrix from MAESTER, and
+-   the **RCTD cell-type deconvolution** matrix.
+
+```{r STEP1_lib, eval=T}
+library(SpatialMT)               # SUMMIT
+library(spotglm)                 # mixture GLM
+library(spacexr)                 # RCTD
+library(Seurat)
+library(Matrix)
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(pheatmap)
+
+setwd("~/Documents/GitHub/SpatialMT/examples/")
+source("utility_prev_literature/210215_FunctionsGeneral.R") # from MAESTER paper
+```
+
+```{r STEP1_load_ST_data, eval=T}
+slide_name = "A200_s6"
+
+# load Spatial Transcriptomics / Curio Seeker data
+seu <- readRDS("example_data/a200_s6_final.rds")
+# spatial coordinates
+coords = seu@reductions$SPATIAL@cell.embeddings
+```
+
+Load the RCTD cell-type ratio and normalize the per-spot weights to sum
+to 1:
+
+```{r STEP1_load_celltype_ratio, eval=T}
+rctd_ratio_major = readRDS("example_data/RCTD_res.rds")
+rctd_ratio_major = as.data.frame(as.matrix(normalize_weights(rctd_ratio_major@results$weights)))
+rownames(rctd_ratio_major) = paste0(rownames(rctd_ratio_major), "-1")
+deconv = rctd_ratio_major
+```
+
+Load the mtDNA data (variant allele frequency `af.dm` and coverage `N`):
+
+```{r STEP1_load_MT_data, eval=T}
+maegatk.rse = readRDS("example_data/maegatk_mr1.rds")
+# all possible mitochondrial mutations' (4 * 16K) x spot VAF
+af.dm <- data.matrix(computeAFMutMatrix(maegatk.rse)) # 0-1 VAF scale
+# coverage N, spot x each chrM location's coverage
+counts = as.matrix(maegatk.rse@assays@data$coverage)
+rownames(counts) = 1:nrow(counts)
+colnames(counts) = maegatk.rse@colData@rownames
+N = as(as.matrix(counts[sapply(strsplit(rownames(af.dm), "_"), "[[", 1), ]), "sparseMatrix")
+rownames(N) <- rownames(af.dm)
+```
+
+### Step 2: Build the clone covariate (niche) matrix
+
+The "niche" matrix is the design/covariate matrix `X` that represents
+different clone identity and their microenvironment. In this tutorial
+example, each column is a mitochondrial clone, and a spot is assigned to
+a clone if its VAF for that variant exceeds a heteroplasmy threshold
+(0.25). Spots not carrying any of the variants of interest are assigned
+to a shared `Rest` group, which serves as the reference background.
+
+The covariate/niche matrix could be further designed to incorporate
+considerations such as micro-environment cells, etc.
+
+```{r STEP2_niche, eval=T}
+# variants of interest (the same clones from the main tutorial)
+voi = c("3054_G>C", "15777_G>C", "3071_T>C")
+
+niche = as.matrix(Matrix(0, nrow = dim(seu)[2], ncol = 4)) # X covariate matrix
+rownames(niche) = colnames(seu)
+colnames(niche) = c("3054_G>C", "15777_G>C", "3071_T>C", "Rest")
+
+# assign carrier spots (VAF > 0.25) for each clone
+niche[colnames(af.dm)[af.dm["3054_G>C", ] > 0.25], "3054_G>C"] = 1
+niche[intersect(colnames(af.dm)[af.dm["15777_G>C", ] > 0.25], rownames(niche)), "15777_G>C"] = 1
+niche[intersect(colnames(af.dm)[af.dm["3071_T>C", ] > 0.25], rownames(niche)), "3071_T>C"] = 1
+# everything else is background ("Rest")
+niche[(niche[, "3054_G>C"] == 0) & (niche[, "15777_G>C"] == 0) & (niche[, "3071_T>C"] == 0),
+      "Rest"] = 1
+
+colSums(niche) # number of spots per clone
+```
+
+Prepare the input data as the following format:
+
+-   `counts` : spot x gene raw UMI counts (such as the top 2000 highly
+    variable genes),
+-   `deconv` : spot x cell-type proportion matrix $W$,
+-   `niche` : spot x clone covariate matrix $X$ (built as above),
+-   `library_size`: per-spot total counts (used as the GLM offset),
+-   `coords` : spatial coordinates of each spot.
+
+```{r STEP3_assemble, eval=T}
+data <- list()
+inter_bc = intersect(colnames(seu), rownames(deconv))
+
+data$coords = coords[inter_bc, ]
+data$deconv = deconv[inter_bc, ]
+
+# Subset to the 2000 most variable genes
+seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2000)
+data$counts = t(seu@assays$RNA$counts)[inter_bc, VariableFeatures(seu)]
+data$library_size = rowSums(data$counts)[inter_bc]
+data$niche = as.matrix(niche[inter_bc, ])
+
+rm(af.dm); rm(maegatk.rse); gc()
+```
+
+### Step 3: Fit the mixture GLM 
+
+We fit a **spot-level Poisson GLM** for each gene. The model regresses
+the gene's count in each spot on the clone covariate `X`, scaled by the
+cell-type proportions `lambda = W`, with the log library size as an
+offset. This deconvolves the mixed signal so that each clone's effect is
+estimated in a **cell-type-specific** manner.
+
+> *Fitting 2000 genes takes a while (\~ 1 hour on a standard laptop's
+> cpu). For this tutorial we will directly load the pre-computed result
+> spotglm_res_a200_s6.rds.*
+
+```{r STEP4_patch_grad, eval=T}
+# modification of fitting package
+g_new <- function(X, y, beta, lambda, offset) {
+  means <- spotglm:::spot_poisson[["predict"]](X, beta, lambda, offset)
+  CT_means <- means$individual
+  total_means <- means$total
+  weights <- -lambda * CT_means + y * (1 / total_means) * lambda * CT_means
+  grad_beta <- t(as.matrix(X)) %*% as.matrix(weights)
+  list(grad = grad_beta, weights = weights)
+}
+assignInNamespace("spot_poisson",
+                  within(spotglm:::spot_poisson, { grad <- g_new }),
+                  ns = "spotglm")
+```
+
+```{r STEP4_fit, eval=FALSE}
+# ---- Full fitting loop (not evaluated in the tutorial) ----
+num_genes = ncol(data$counts)
+res = vector("list", num_genes)
+t1 = Sys.time()
+for (j in seq_len(num_genes)) {
+  if (j %% 100 == 0) {
+    cat("Fitting model for gene ", j, " out of ", num_genes, "\n")
+    print(Sys.time() - t1)
+  }
+  res[[j]] = spotglm::run_model(y = data$counts[, j],
+                                X = data$niche,
+                                lambda = data$deconv,
+                                family = "spot poisson",
+                                offset = log(data$library_size),
+                                initialization = TRUE, batch_size = 250)
+}
+names(res) = colnames(data$counts)
+saveRDS(res, "example_data/spotglm_res_a200_s6.rds")
+```
+
+```{r STEP4_load_fit, eval=T}
+# load the pre-computed spotGLM fit (list of length 2000, one element per gene)
+res <- readRDS("example_data/spotglm_res_a200_s6.rds")
+length(res)
+names(res[[1]]) # beta_estimate, vcov, likelihood, converged, ...
+```
+
+### Step 4: Mixture DEG --- contrasts between clones per cell type
+
+Each gene's fit gives a clone-specific coefficient (`beta_estimate`) and
+its covariance (`vcov`) for every cell type. To perform mixture DEG
+analysis we test contrasts between clones, i.e. whether a gene's
+expression differs between two clones *within a given cell type*. We use
+`compute_contrast_significance()` and loop over all cell types $\times$
+all clone pairs.
+
+We run a **two-sided** test (`sided = 2`) so genes up- or down-regulated
+in either clone are detected.
+
+```{r STEP5_contrasts, eval=T}
+cell_types <- colnames(deconv) # e.g. BE, SQ, IM, FB, VC, ...
+niches <- colnames(niche)      # the 3 clone + Rest covariates
+pairs <- combn(niches, 2, simplify = FALSE)  # all clone-vs-clone contrasts
+
+all_contrasts <- purrr::map_dfr(cell_types, function(ct) {
+  purrr::map_dfr(pairs, function(p) {
+    n1 <- p[1]; n2 <- p[2]
+    out <- compute_contrast_significance(
+      input_list = res,
+      cell_type = ct,
+      effect_names = c(n1, n2),
+      beta_name = "beta_estimate",
+      covariance_name = "vcov",
+      sided = 2
+    )
+    if (!("gene" %in% names(out))) out <- out %>% tibble::rownames_to_column("gene")
+    out %>% mutate(contrast = paste0(n1, " vs ", n2))
+  })
+})
+
+# You could also directly load the fitted result to save time:
+# all_contrasts <- readRDS("example_data/results/deg_2sided.rds")
+saveRDS(all_contrasts, "example_data/results/deg_2sided.rds")
+
+head(all_contrasts)
+```
+
+The resulting table has one row per `gene` x `cell_type` x `contrast`,
+with a `test_statistic`, raw `pval` and FDR-adjusted `qval`.
+
+We typically drop mitochondrial (`MT-`) genes from the DEG results,
+since they directly track the mtDNA clone definition and would otherwise
+dominate the list:
+
+```{r STEP5_filter_mt, eval=T}
+all_contrasts = all_contrasts[!grepl("MT-", all_contrasts$name), ]
+```
+
+Quick summary of how many significant genes (q \< 0.05 / 0.10) each cell
+type x contrast has:
+
+```{r STEP5_summary, eval=T}
+summary_by_ct_contrast <- all_contrasts %>%
+  group_by(cell_type, contrast) %>%
+  summarise(
+    n_q05 = n_distinct(gene[qval < 0.05]),
+    n_q10 = n_distinct(gene[qval < 0.10]),
+    .groups = "drop"
+  ) %>%
+  arrange(cell_type, contrast)
+
+head(summary_by_ct_contrast, 12)
+```
+
+### Step 5: Visualize top DEGs per cell type
+
+The function `plot_DEG()` selects the top genes per cell type by best
+q-value, and draws two side-by-side heatmaps per cell type:
+
+-   the **effect size** (here the `test_statistic`) across all clone
+    comparisons, and
+-   the matching **-log10(p)** heatmap (capped at `qcap_val`) using the
+    same row/column ordering.
+
+```{r STEP6_plot_deg, eval=T, fig.width=10, fig.height=5}
+source("mixture_DEG_pathway_functions.R")
+
+pdf_path = "example_data/results/celltype_deg_top20_2sided_MTremoved.pdf"
+plot_DEG(all_contrasts,
+         cell_types = cell_types,
+         pdf_path = pdf_path,
+         effect_col = "test_statistic",
+         top_k = 20,      # top genes per cell type
+         q_thresh = 0.1,  # significance threshold
+         qcap_val = 10)   # cap -log10(p) for plotting
+```
+
+The full set of per-cell-type heatmaps is saved at
+`example_data/results/celltype_deg_top20_2sided_MTremoved.pdf`.
+
+### References
+
+[1] Miller, T.E., Lareau, C.A., Verga, J.A. et al. Mitochondrial variant
+enrichment from high-throughput single-cell RNA sequencing resolves
+clonal populations. *Nat Biotechnol* 40, 1030--1034 (2022).
+<https://doi.org/10.1038/s41587-022-01210-8>
+
+[2] Cable, Dylan M., et al. "Robust decomposition of cell type mixtures
+in spatial transcriptomics." *Nature Biotechnology* 40.4 (2022):
+517-526.
+
+[3] spotGLM: a generalized linear model for cell-type-specific analysis
+of spatial mixtures. <https://github.com/CZ-lab/spotglm>
+
+[4] Korotkevich, G. et al. Fast gene set enrichment analysis (fgsea).
+*bioRxiv* (2021). <https://doi.org/10.1101/060012>
