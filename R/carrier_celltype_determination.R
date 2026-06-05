@@ -40,10 +40,10 @@ celltype_test <- function(celltypes=NULL,voi=NULL,N=NULL,vaf=NULL,X=NULL,Ws=NULL
   }
 
   if(is.null(vaf)){
-    if(!is.null(N)){
-      vaf_j = X[j,]/N[j,]
+    if(!is.null(X) && !is.null(N)){
+      vaf = X / N
     }else{
-      error("Missing alternative allelle count matrix N or frequency matrix vaf.")
+      stop("Missing variant allele frequency matrix 'vaf'; to compute it instead, both the alternative allele count matrix 'X' and coverage matrix 'N' must be supplied.")
     }
   }
   # check if celltypes aligned with weight matrix
@@ -162,7 +162,7 @@ celltype_test <- function(celltypes=NULL,voi=NULL,N=NULL,vaf=NULL,X=NULL,Ws=NULL
       intercept=intercept_df[j,]
       coef=coef_df[j,]
       pval=pval_df[j,]
-      plot_vaf_cellprop(j,af.dm,Ws,plot_df,intercept,coef,pval)
+      plot_vaf_cellprop(j,vaf,Ws,plot_df,intercept,coef,pval)
     }
     dev.off()
     # plot adjusted p-value as well
@@ -175,7 +175,7 @@ celltype_test <- function(celltypes=NULL,voi=NULL,N=NULL,vaf=NULL,X=NULL,Ws=NULL
         intercept=intercept_df[j,]
         coef=coef_df[j,]
         pval=adjusted_pval_df[j,]
-        plot_vaf_cellprop(j,af.dm,Ws,plot_df,intercept,coef,pval)
+        plot_vaf_cellprop(j,vaf,Ws,plot_df,intercept,coef,pval)
       }
       dev.off()
     }
