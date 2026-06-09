@@ -1,7 +1,7 @@
 ---
 title: "Tutorial of Mixture DEG Analysis (SpotGLM) on Barrett's Esophagus example"
 author: "Jiazhen Rong, Sydney Bracht"
-date: "2025-09-15"
+date: "2026-06-09"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{SUMMIT Mixture DEG Tutorial}
@@ -32,21 +32,29 @@ specific cell type carries a given mitochondrial variant**. Once we know
 which spots are carriers of a clone, a natural follow-up question is:
 
 > *Which genes are differentially expressed between clones (or between a
-> clone and the rest of the tissue)?*
+> clone and the rest of the tissue, or a clone and its microenvironment)?*
 
-However, compared to standard single-cell DEG analysis, each spatial
-spot of *SUMMIT* is a **mixture** of multiple cell types. To recover
-cell-type-specific differential expression from these mixed spots, we
-use a mixture Poisson GLM.
+In this tutorial, our goal is to identify genes that are differentially expressed in a cell type–specific manner, either within a clone or in its surrounding spatial neighborhood. For example, when a variant has been identified as tumor-associated, two key questions often arise: (1) How do tumor cells carrying the variant differ from other tumor cells? and (2) How does the immune and stromal microenvironment surrounding variant-carrying tumor cells differ from that surrounding tumor cells without the variant?
+
+A central challenge in addressing these questions is that spatial transcriptomic spots typically contain mixtures of cell types. A naïve differential expression analysis (like standard single-cell DEG analysis) comparing spots with and without the variant would therefore conflate cell type–specific effects with differences in cellular composition. To account for this, we propose a mixture Poisson generalized linear model (GLM) that explicitly models spot-level cell type mixing in differential expression analysis.
+
+For gene g and spot s, we assume the observed gene expression counts Y_sg follows a Poisson GLM model: 
+$$Y_{sg} \sim Poisson(\lambda_{sg})$$
+$$\lambda_{sg}=  \sum_k W_{sk} exp (X_s^T\beta_{gk}+L_s). $$     
+where $L_s$ is the library size of spot $s$, $W_{sk}$ is the mixture proportion of cell type $k$ in spot $s$, which can be pre-computed from tools like RCTD through deconvolution.  
+$X$ is the pre-designed covariate matrix, representing the identity of the clones. For example, a simple design for spot s and clone c could be:
+
+$$X_{s,c}=\begin{cases} 1, & \text{if spot s belongs to clone c} \\ 0, & \text{if spot s does not belong to clone c} \end{cases}$$
+From the model, we can estimate gene $g$ and celltype $k$ specific effect sizes $\beta_gk$. For further derivation and discussion of how to estimate the effect sizes $\beta_gk$, and how to test the effect sizes, please check our Methods section of **Mixture GLM Model for Differentially Expressions of Variants** in the manuscript.
 
 This tutorial reuses the same Barrett's Esophagus sample (A200_s6) from
 the main tutorial, takes the mitochondrial clones we identified there as
-the **covariate of interest (niche)**, and gives an examplf of the
-mixture-DEG workflow.
+the covariate of interest (niche), and gives an example of the
+mixture-DEG analysis.
 
 The example data are available at the same
 [DropBox](https://www.dropbox.com/scl/fo/sx6tfijkkapsvo4036xhj/AB9NjFsN6yz5xYyz-CpAgKk?rlkey=kf6blkddohhd7gdr96q85kf21&st=sybpv5mx&dl=0)
-folder; please move them to the **SpatialMT/examples/example_data**
+folder; please move them to the *SpatialMT/examples/example_data*
 folder.
 
 To run this tutorial you additionally need the
@@ -62,11 +70,11 @@ devtools::install_github("kaishumason/SPARROW")
 
 We load the same three inputs as in the main tutorial:
 
--   the Spatial Transcriptomics (Curio Seeker) **Seurat object**,
--   the mtDNA **variant allele frequency** matrix from MAESTER, and
--   the **RCTD cell-type deconvolution** matrix.
+-   the Spatial Transcriptomics Seurat object
+-   the mtDNA variant allele frequency matrix from SUMMIT
+-   the RCTD cell-type deconvolution matrix
 
-```{r STEP1_lib, eval=F}
+```{r STEP1_lib, eval=T}
 library(SpatialMT)               # SUMMIT
 library(spotglm)                 # mixture GLM
 library(spacexr)                 # RCTD
@@ -85,7 +93,7 @@ setwd("~/Documents/GitHub/SpatialMT/examples/")
 source("utility_prev_literature/210215_FunctionsGeneral.R") # from MAESTER paper
 ```
 
-```{r STEP1_load_ST_data, eval=F}
+```{r STEP1_load_ST_data, eval=T}
 slide_name = "A200_s6"
 
 # load Spatial Transcriptomics / Curio Seeker data
@@ -97,7 +105,7 @@ coords = seu@reductions$SPATIAL@cell.embeddings
 Load the RCTD cell-type ratio and normalize the per-spot weights to sum
 to 1:
 
-```{r STEP1_load_celltype_ratio, eval=F}
+```{r STEP1_load_celltype_ratio, eval=T}
 rctd_ratio_major = readRDS("example_data/RCTD_res.rds")
 rctd_ratio_major = as.data.frame(as.matrix(normalize_weights(rctd_ratio_major@results$weights)))
 rownames(rctd_ratio_major) = paste0(rownames(rctd_ratio_major), "-1")
@@ -106,7 +114,7 @@ deconv = rctd_ratio_major
 
 Load the mtDNA data (variant allele frequency `af.dm` and coverage `N`):
 
-```{r STEP1_load_MT_data, eval=F}
+```{r STEP1_load_MT_data, eval=T}
 maegatk.rse = readRDS("example_data/maegatk_mr1.rds")
 # all possible mitochondrial mutations' (4 * 16K) x spot VAF
 af.dm <- data.matrix(computeAFMutMatrix(maegatk.rse)) # 0-1 VAF scale
@@ -128,9 +136,9 @@ a clone if its VAF for that variant exceeds a heteroplasmy threshold
 to a shared `Rest` group, which serves as the reference background.
 
 The covariate/niche matrix could be further designed to incorporate
-considerations such as micro-environment cells, etc.
+additional columns such as the ratio of different micro-environment celltypes, etc. 
 
-```{r STEP2_niche, eval=F}
+```{r STEP2_niche, eval=T}
 # variants of interest (the same clones from the main tutorial)
 voi = c("3054_G>C", "15777_G>C", "3071_T>C")
 
@@ -158,7 +166,7 @@ Prepare the input data as the following format:
 -   `library_size`: per-spot total counts (used as the GLM offset),
 -   `coords` : spatial coordinates of each spot.
 
-```{r STEP3_assemble, eval=F}
+```{r STEP3_assemble, eval=T}
 data <- list()
 inter_bc = intersect(colnames(seu), rownames(deconv))
 
@@ -167,7 +175,7 @@ data$deconv = deconv[inter_bc, ]
 
 # Subset to the 2000 most variable genes
 seu <- FindVariableFeatures(seu, selection.method = "vst", nfeatures = 2000)
-data$counts = t(seu@assays$RNA$counts)[inter_bc, VariableFeatures(seu)]
+data$counts = t(seu@assays$RNA@counts)[inter_bc, VariableFeatures(seu)]
 data$library_size = rowSums(data$counts)[inter_bc]
 data$niche = as.matrix(niche[inter_bc, ])
 
@@ -186,7 +194,7 @@ estimated in a **cell-type-specific** manner.
 > cpu). For this tutorial we will directly load the pre-computed result
 > spotglm_res_a200_s6.rds.*
 
-```{r STEP4_patch_grad, eval=F}
+```{r STEP4_patch_grad, eval=T}
 # modification of fitting package
 g_new <- function(X, y, beta, lambda, offset) {
   means <- spotglm:::spot_poisson[["predict"]](X, beta, lambda, offset)
@@ -201,8 +209,17 @@ assignInNamespace("spot_poisson",
                   ns = "spotglm")
 ```
 
+```{r STEP4_load_fit, eval=F}
+# load the pre-computed spotGLM fit (list of length 2000, one element per gene)
+res <- readRDS("example_data/spotglm_res_a200_s6.rds")
+length(res)
+names(res[[1]]) # beta_estimate, vcov, likelihood, converged, ...
+```
+
+The following code was used to generate *spotglm_res_a200_s6.rds* object. Expected run time is ~ 1 hour. Can be skipped in this tutorial for time saving purpose. 
+
 ```{r STEP4_fit, eval=FALSE}
-# ---- Full fitting loop (not evaluated in the tutorial) ----
+# Fitting for the 2000 HVGs. Expect ~ 1 hr to finish
 num_genes = ncol(data$counts)
 res = vector("list", num_genes)
 t1 = Sys.time()
@@ -222,18 +239,12 @@ names(res) = colnames(data$counts)
 saveRDS(res, "example_data/spotglm_res_a200_s6.rds")
 ```
 
-```{r STEP4_load_fit, eval=F}
-# load the pre-computed spotGLM fit (list of length 2000, one element per gene)
-res <- readRDS("example_data/spotglm_res_a200_s6.rds")
-length(res)
-names(res[[1]]) # beta_estimate, vcov, likelihood, converged, ...
-```
 
-### Step 4: Mixture DEG
+### Step 4: Mixture GLM based DEG
 
 Each gene's fit gives a clone-specific coefficient (`beta_estimate`) and
-its covariance (`vcov`) for every cell type. To perform mixture DEG
-analysis we test contrasts between clones, i.e. whether a gene's
+its covariance (`vcov`) for every cell type. To perform weighted DEG
+analysis regarding each celltype, we test the contrasts between clones, i.e. whether a gene's
 expression differs between two clones *within a given cell type*. We use
 `compute_contrast_significance()` and loop over all cell types $\times$
 all clone pairs.
@@ -241,10 +252,17 @@ all clone pairs.
 We run a **two-sided** test (`sided = 2`) so genes up- or down-regulated
 in either clone are detected.
 
-```{r STEP5_contrasts, eval=F}
+# You could also directly load the fitted result to save time:
+```{r STEP5_contrasts_load_precomputed_result, eval=T}
 cell_types <- colnames(deconv) # e.g. BE, SQ, IM, FB, VC, ...
 niches <- colnames(niche)      # the 3 clone + Rest covariates
 pairs <- combn(niches, 2, simplify = FALSE)  # all clone-vs-clone contrasts
+
+all_contrasts <- readRDS("example_data/results/deg_2sided.rds")
+```
+
+The following code was used to generate *deg_2sided.rds* object. Can be skipped in this tutorial for time saving purpose. 
+```{r STEP5_contrasts, eval=F}
 
 all_contrasts <- purrr::map_dfr(cell_types, function(ct) {
   purrr::map_dfr(pairs, function(p) {
@@ -262,8 +280,6 @@ all_contrasts <- purrr::map_dfr(cell_types, function(ct) {
   })
 })
 
-# You could also directly load the fitted result to save time:
-# all_contrasts <- readRDS("example_data/results/deg_2sided.rds")
 saveRDS(all_contrasts, "example_data/results/deg_2sided.rds")
 
 head(all_contrasts)
@@ -306,11 +322,17 @@ q-value, and draws two side-by-side heatmaps per cell type:
 -   the matching **-log10(p)** heatmap (capped at `qcap_val`) using the
     same row/column ordering.
 
-```{r STEP6_plot_deg, eval=F, fig.width=10, fig.height=5}
+`plot_DEG()` returns a named list of the per-cell-type heatmap grobs
+(invisibly), so you can either save them to a PDF and/or render them
+inline in R.
+
+To save the full set of heatmaps to a PDF, pass a `pdf_path`:
+
+```{r STEP6_plot_deg_pdf, eval=F, fig.width=10, fig.height=5}
 source("mixture_DEG_pathway_functions.R")
 
 pdf_path = "example_data/results/celltype_deg_top20_2sided_MTremoved.pdf"
-plot_DEG(all_contrasts,
+deg_plots <- plot_DEG(all_contrasts,
          cell_types = cell_types,
          pdf_path = pdf_path,
          effect_col = "test_statistic",
@@ -321,6 +343,35 @@ plot_DEG(all_contrasts,
 
 The full set of per-cell-type heatmaps is saved at
 `example_data/results/celltype_deg_top20_2sided_MTremoved.pdf`.
+
+Alternatively, omit `pdf_path` to render the heatmaps directly in R (e.g.
+inline in this document). `plot_DEG()` returns the list of grobs, which
+you can also redraw individually with `grid::grid.draw()`:
+
+```{r STEP6_plot_deg_inline, eval=F, fig.width=10, fig.height=5}
+source("mixture_DEG_pathway_functions.R")
+
+deg_plots <- plot_DEG(all_contrasts,
+         pdf_path = pdf_path,
+         cell_types = cell_types,
+         effect_col = "test_statistic",
+         top_k = 20,
+         q_thresh = 0.1,
+         qcap_val = 10)   # draws each cell type's heatmap inline
+
+```
+
+Or the DEGs specific to a celltype in the clones can be visualized as:
+```{r STEP6_plot_deg_in_R, eval=T,fig.width=15, fig.height=8, out.width="80%"}
+source("mixture_DEG_pathway_functions.R")
+
+deg_plots <- plot_DEG(all_contrasts, cell_types = cell_types, effect_col = "test_statistic",top_k = 20, q_thresh = 0.1,qcap_val = 10,draw=F)
+
+grid.newpage()
+# visualize a specific celltype
+grid.draw(deg_plots[["BE"]])
+```
+
 
 ### References
 

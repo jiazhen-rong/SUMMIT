@@ -17,6 +17,7 @@ plot_DEG <- function(all_contrasts, # DEG results from SpotGLM
                      require_sig=TRUE, # TRUE = only keep genes with best q < q_thresh
                      use_q_col="qval",    
                      qcap_val = 10, # max capping value for plotting p-values
+                     draw = TRUE, # draw each cell type's heatmap to the current device
                      width=10,height=5){
   # Select top genes
   top_genes_by_ct <- all_contrasts %>%
@@ -35,13 +36,22 @@ plot_DEG <- function(all_contrasts, # DEG results from SpotGLM
   
   
   # Plotting
-  pdf(pdf_path, width = 10, height = 5)
+  # Open a PDF device only if a path is given; otherwise draw to the current device.
+  if (!is.null(pdf_path)) {
+    pdf(pdf_path, width = width, height = height)
+    on.exit(dev.off(), add = TRUE)
+  }
+
+  # collect one combined (effect + -log10p) grob per cell type to return
+  plots <- vector("list", length(cell_types))
+  names(plots) <- cell_types
+
   for (ct in cell_types) {
     print(paste0("Plotting ",ct, " ..."))
     genes_ct <- top_genes_by_ct %>% filter(cell_type == ct) %>% pull(genes)
-    
+
     if(length(genes_ct) == 0){
-      plot_empty(paste0("Cell type ", ct), msg = paste0(ct," - No genes pass q < ", q_thresh))
+      if (draw) plot_empty(paste0("Cell type ", ct), msg = paste0(ct," - No genes pass q < ", q_thresh))
       next
     }else{
       genes_ct <- genes_ct[[1]]
@@ -107,9 +117,15 @@ plot_DEG <- function(all_contrasts, # DEG results from SpotGLM
       silent = TRUE
     )
     
-    #grid.newpage()
-    grid.arrange(ph1$gtable, ph2$gtable, ncol = 2)
+    # build the combined grob (does NOT draw), so we can both draw and return it
+    g <- gridExtra::arrangeGrob(ph1$gtable, ph2$gtable, ncol = 2)
+    plots[[ct]] <- g
+
+    if (draw) {
+      grid.newpage()
+      grid.draw(g)
+    }
   }
-  
-  dev.off()
+
+  invisible(plots)
 }
