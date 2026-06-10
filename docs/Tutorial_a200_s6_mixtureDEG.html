@@ -410,7 +410,7 @@ folder.</p>
 <li>the mtDNA variant allele frequency matrix from SUMMIT</li>
 <li>the RCTD cell-type deconvolution matrix</li>
 </ul>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(SpatialMT)               <span class="co"># SUMMIT</span></span>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(SUMMIT)               <span class="co"># SUMMIT</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(spotglm)                 <span class="co"># mixture GLM</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(spacexr)                 <span class="co"># RCTD</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Seurat)</span>
@@ -504,8 +504,8 @@ offset),</li>
 <span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(af.dm); <span class="fu">rm</span>(maegatk.rse); <span class="fu">gc</span>()</span></code></pre></div>
 <pre><code>##             used   (Mb) gc trigger   (Mb) limit (Mb)   max used    (Mb)
-## Ncells   7164083  382.7   12350148  659.6         NA   11462455   612.2
-## Vcells 226753982 1730.0 1132696848 8641.8     102400 1408651367 10747.2</code></pre>
+## Ncells   7164068  382.7   12350085  659.6         NA   11462743   612.2
+## Vcells 226753941 1730.0 1132696808 8641.8     102400 1408651326 10747.2</code></pre>
 </div>
 <div id="step-3-fit-the-mixture-glm" class="section level3">
 <h3>Step 3: Fit the mixture GLM</h3>
