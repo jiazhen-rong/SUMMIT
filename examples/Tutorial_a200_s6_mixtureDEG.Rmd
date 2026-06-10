@@ -16,7 +16,7 @@ editor_options:
 knitr::opts_chunk$set(echo = T, message = FALSE, warning = FALSE)
 knitr::opts_knit$set(root.dir = "~/Documents/GitHub/SpatialMT/examples/")
 
-library(SpatialMT)
+library(SUMMIT)
 library(SummarizedExperiment)
 library(Matrix)
 library(dplyr)
@@ -75,7 +75,7 @@ We load the same three inputs as in the main tutorial:
 -   the RCTD cell-type deconvolution matrix
 
 ```{r STEP1_lib, eval=T}
-library(SpatialMT)               # SUMMIT
+library(SUMMIT)               # SUMMIT
 library(spotglm)                 # mixture GLM
 library(spacexr)                 # RCTD
 library(Seurat)

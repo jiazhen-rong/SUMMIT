@@ -7,7 +7,7 @@ library(ggplot2)
 library(Seurat)
 library(SummarizedExperiment)
 library(Matrix)
-library(SpatialMT)
+library(SUMMIT)
 
 # load data (X - alternate allele counts, N - total counts, Ws - celltype)
 setwd("~/Documents/GitHub/SpatialMT/examples/")

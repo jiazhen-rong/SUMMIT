@@ -13,7 +13,7 @@ vignette: >
 knitr::opts_chunk$set(echo = T,message = FALSE, warning = FALSE)
 knitr::opts_knit$set(root.dir = "~/Documents/GitHub/SpatialMT/examples/")
 
-library(SpatialMT)
+library(SUMMIT)
 library(SummarizedExperiment)  
 library(SingleCellExperiment)  
 library(Matrix)
@@ -38,7 +38,7 @@ To prepare your own data as SUMMIT input format:
 First let's load relevant packages and functions. The **210215_FunctionsGeneral.R** is a utility function of MAESTER [1] to load the pre-processed variant count matrix.
 
 ```{r STEP1_lib, eval=T}
-library(SpatialMT)
+library(SUMMIT)
 library(grid)
 library(gridExtra)
 library(spacexr) # RCTD
@@ -160,7 +160,7 @@ We can visualize such global significance results as in our paper in specified c
 # Visualize significance
 celltype_colors = c("BE" = "#E00A82","SQ" = "#ea6860","IM" = "#538e8e","FB" = "#8bc3c3","VC" = "#a2b7d7")
 celltypes = c("BE" ,"SQ" ,"IM","FB","VC")
-p <- SpatialMT:::plot_lineage_significance(
+p <- SUMMIT:::plot_lineage_significance(
   res = res_lg, celltypes=celltypes, fill_values=celltype_colors,
   order_by = "BE", title="Global Cell Type Test",
   outfile = file.path(save_path, "lineage_significance_allcelltype.pdf"), return_plot=T)
@@ -178,7 +178,7 @@ print(p)
 ```{r STEP2_result_visualization_power, include=T,eval=T,fig.width=10,fig.height=5}
 celltype_pattern = paste(celltypes,collapse = "|")
 effect_sizes = seq(0.1, 1, by = 0.2)
-p2<- SpatialMT:::plot_power_curves(
+p2<- SUMMIT:::plot_power_curves(
   beta_list = beta_list, effect_sizes = effect_sizes, 
   celltype_pattern=celltype_pattern, celltype_colors = celltype_colors,
   desired_order = c("3054_G>C","3071_T>C","15777_G>C"),

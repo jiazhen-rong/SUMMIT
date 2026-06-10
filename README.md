@@ -1,7 +1,7 @@
 # SUMMIT Overview
 This GitHub contains the beta version of the Spatial Mitochondrial Variant Test - **SUMMIT** package.
 
-All the analysis codes are within the [Analysis](https://github.com/jiazhen-rong/SpatialMT/tree/main/Analysis) folder. 
+All the analysis codes are within the [Analysis](https://github.com/jiazhen-rong/SUMMIT/tree/main/Analysis) folder. 
 
 All the results in our paper was based on SUMMIT v1.0.0. 
 
@@ -32,12 +32,12 @@ The installation shall take < 5 minutes.
 To install the package, please use the following commands:
 ``` r
 install.packages("devtools")
-devtools::install_github("jiazhen-rong/SpatialMT") # install
-library(SpatialMT) # load
+devtools::install_github("jiazhen-rong/SUMMIT") # install
+library(SUMMIT) # load
 ```
 or directly copy from git:
 ``` linux
-git clone https://github.com/jiazhen-rong/SpatialMT.git
+git clone https://github.com/jiazhen-rong/SUMMIT.git
 ```
 
 ## Tutorial

@@ -24,7 +24,7 @@ To prepare your own data as SUMMIT input format:
 First let's load relevant packages and functions. The **210215_FunctionsGeneral.R** is a utility function of MAESTER [1] to load the pre-processed variant count matrix.
 
 ```{r STEP1_lib, eval=F}
-library(SpatialMT)
+library(SUMMIT)
 library(grid)
 library(gridExtra)
 library(spacexr) # RCTD
