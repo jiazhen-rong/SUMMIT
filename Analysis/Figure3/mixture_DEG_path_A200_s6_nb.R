@@ -17,23 +17,19 @@ library(distances)
 library(sf)
 library(spdep)
 library(cowplot)
-library(SpatialMT)
+library(SUMMIT)
 
-# =====================================================================
+
 # A200_s6 mixture-DEG analysis with spotGLM.
-# Identical to mixture_DEG_path_A200_s6_sec1.R EXCEPT the GLM family is
-# changed from "spot poisson" -> "spot negative binomial".
-#
 # Notes on the NB change:
 #  - spotGLM selects the family by string: family = "spot negative binomial".
-#  - NB estimates an overdispersion parameter internally; each gene's fit
+#  - NB estimates an over dispersion parameter internally; each gene's fit
 #    in the result list gains a $dispersion element.
 #  - The Poisson script monkey-patched spot_poisson[["grad"]]. That patch is
 #    NOT needed here: (1) it is now identical to the package's built-in
 #    Poisson gradient, and (2) the NB family ships its own dispersion-aware
 #    gradient spot_negative_binomial[["grad"]]. So no assignInNamespace patch.
 #  - Offset (log library size) is supported for NB just like Poisson.
-# =====================================================================
 
 setwd("~/nzhanglab/project/jrong/mito_LT/scripts/our_model/")
 source("example_data/210215_FunctionsGeneral.R") # from MAESTER paper
@@ -87,9 +83,6 @@ gc()
 num_genes = ncol(data$counts)
 res = vector("list",num_genes) # container for the results
 
-# NOTE: no spot_poisson gradient patch here. The NB family uses its own
-# dispersion-aware gradient (spot_negative_binomial[["grad"]]).
-
 t1 = Sys.time()
 for(j in c(1:num_genes)){
   if(j%%100 == 0){
@@ -97,8 +90,8 @@ for(j in c(1:num_genes)){
     print(Sys.time() - t1)
   }
   res[[j]] = spotglm::run_model(y = data$counts[,j],
-                                X = data$niche,
-                                lambda = data$deconv,
+                                X = as.matrix(data$niche),
+                                lambda = as.matrix(data$deconv),
                                 family = "spot negative binomial",
                                 offset = log(data$library_size),
                                 initialization = T,batch_size = 250)
